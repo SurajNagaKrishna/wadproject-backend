@@ -8,19 +8,25 @@ app.use(cors());
 app.use(express.json());
 
 // ================= MYSQL CONNECTION =================
+// ✅ Use ENV variables (Render-compatible)
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "SUraj123!",
-  database: "wadproject"
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "SUraj123!",
+  database: process.env.DB_NAME || "wadproject"
 });
 
 db.connect(err => {
   if (err) {
-    console.log("DB Error:", err);
+    console.error("DB Error:", err.message);
   } else {
     console.log("MySQL Connected");
   }
+});
+
+// ================= HEALTH CHECK =================
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
 });
 
 // ================= REGISTER ADMIN =================
@@ -28,10 +34,7 @@ app.post("/register", async (req, res) => {
   const { username, password, email } = req.body;
 
   if (!username || !password || !email) {
-    return res.json({
-      success: false,
-      message: "All fields are required"
-    });
+    return res.json({ success: false, message: "All fields are required" });
   }
 
   db.query(
@@ -39,7 +42,7 @@ app.post("/register", async (req, res) => {
     [username, email],
     async (err, result) => {
       if (err) {
-        console.log("REGISTER SELECT ERROR:", err);
+        console.error("REGISTER SELECT ERROR:", err);
         return res.json({ success: false });
       }
 
@@ -57,7 +60,7 @@ app.post("/register", async (req, res) => {
         [username, hashedPassword, email],
         err => {
           if (err) {
-            console.log("REGISTER INSERT ERROR:", err);
+            console.error("REGISTER INSERT ERROR:", err);
             return res.json({ success: false });
           }
 
@@ -87,7 +90,7 @@ app.post("/login", (req, res) => {
     [username],
     async (err, result) => {
       if (err) {
-        console.log("LOGIN ERROR:", err);
+        console.error("LOGIN ERROR:", err);
         return res.json({ success: false });
       }
 
@@ -115,9 +118,9 @@ app.post("/login", (req, res) => {
   );
 });
 
-// ================= PLACE ORDER (BILLING PAGE) =================
+// ================= PLACE ORDER =================
 app.post("/place-order", (req, res) => {
-  const items = req.body.items;
+  const { items } = req.body;
 
   if (!items || items.length === 0) {
     return res.status(400).json({
@@ -126,16 +129,15 @@ app.post("/place-order", (req, res) => {
     });
   }
 
-  // 1️⃣ Create new order
+  // Create order
   db.query("INSERT INTO orders () VALUES ()", (err, result) => {
     if (err) {
-      console.log("ORDER INSERT ERROR:", err);
+      console.error("ORDER INSERT ERROR:", err);
       return res.status(500).json({ success: false });
     }
 
     const orderId = result.insertId;
 
-    // 2️⃣ Insert order items
     const values = items.map(item => [
       orderId,
       item.name,
@@ -148,7 +150,7 @@ app.post("/place-order", (req, res) => {
       [values],
       err => {
         if (err) {
-          console.log("ORDER ITEMS ERROR:", err);
+          console.error("ORDER ITEMS ERROR:", err);
           return res.status(500).json({ success: false });
         }
 
@@ -161,7 +163,7 @@ app.post("/place-order", (req, res) => {
   });
 });
 
-// ================= CHEF DASHBOARD - FETCH ORDERS =================
+// ================= CHEF ORDERS =================
 app.get("/chef-orders", (req, res) => {
   const query = `
     SELECT 
@@ -171,23 +173,22 @@ app.get("/chef-orders", (req, res) => {
       i.item_name,
       i.quantity
     FROM orders o
-    JOIN order_items i 
-      ON o.order_id = i.order_id
+    JOIN order_items i ON o.order_id = i.order_id
     WHERE o.status = 'PENDING'
     ORDER BY o.order_time ASC
   `;
 
   db.query(query, (err, results) => {
     if (err) {
-      console.log("CHEF FETCH ERROR:", err);
-      return res.status(500).json({ success: false });
+      console.error("CHEF FETCH ERROR:", err);
+      return res.json([]);
     }
 
     res.json(results);
   });
 });
 
-// ================= MARK ORDER AS SERVED =================
+// ================= SERVE ORDER =================
 app.post("/serve-order", (req, res) => {
   const { orderId } = req.body;
 
@@ -200,7 +201,7 @@ app.post("/serve-order", (req, res) => {
     [orderId],
     err => {
       if (err) {
-        console.log("SERVE ORDER ERROR:", err);
+        console.error("SERVE ORDER ERROR:", err);
         return res.status(500).json({ success: false });
       }
 
@@ -210,8 +211,8 @@ app.post("/serve-order", (req, res) => {
 });
 
 // ================= SERVER =================
-app.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
+// ✅ REQUIRED for Render
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
-
-
