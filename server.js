@@ -8,17 +8,18 @@ app.use(cors());
 app.use(express.json());
 
 // ================= MYSQL CONNECTION =================
-// ✅ Use ENV variables (Render-compatible)
+// ✅ Railway MySQL (via Render ENV variables)
 const db = mysql.createConnection({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "SUraj123!",
-  database: process.env.DB_NAME || "wadproject"
+  host: process.env.MYSQLHOST,
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQLDATABASE,
+  port: process.env.MYSQLPORT
 });
 
 db.connect(err => {
   if (err) {
-    console.error("DB Error:", err.message);
+    console.error("DB Connection Error:", err.message);
   } else {
     console.log("MySQL Connected");
   }
@@ -26,7 +27,7 @@ db.connect(err => {
 
 // ================= HEALTH CHECK =================
 app.get("/", (req, res) => {
-  res.send("Backend is running 🚀");
+  res.send("Backend running 🚀");
 });
 
 // ================= REGISTER ADMIN =================
@@ -42,7 +43,7 @@ app.post("/register", async (req, res) => {
     [username, email],
     async (err, result) => {
       if (err) {
-        console.error("REGISTER SELECT ERROR:", err);
+        console.error("REGISTER ERROR:", err);
         return res.json({ success: false });
       }
 
@@ -79,10 +80,7 @@ app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    return res.json({
-      success: false,
-      message: "All fields are required"
-    });
+    return res.json({ success: false, message: "All fields are required" });
   }
 
   db.query(
@@ -95,25 +93,16 @@ app.post("/login", (req, res) => {
       }
 
       if (result.length === 0) {
-        return res.json({
-          success: false,
-          message: "Admin not found"
-        });
+        return res.json({ success: false, message: "Admin not found" });
       }
 
       const match = await bcrypt.compare(password, result[0].password);
 
       if (!match) {
-        return res.json({
-          success: false,
-          message: "Wrong password"
-        });
+        return res.json({ success: false, message: "Wrong password" });
       }
 
-      res.json({
-        success: true,
-        message: "Login successful"
-      });
+      res.json({ success: true, message: "Login successful" });
     }
   );
 });
@@ -123,10 +112,7 @@ app.post("/place-order", (req, res) => {
   const { items } = req.body;
 
   if (!items || items.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "No items received"
-    });
+    return res.status(400).json({ success: false });
   }
 
   // Create order
@@ -154,16 +140,13 @@ app.post("/place-order", (req, res) => {
           return res.status(500).json({ success: false });
         }
 
-        res.json({
-          success: true,
-          orderId
-        });
+        res.json({ success: true, orderId });
       }
     );
   });
 });
 
-// ================= CHEF ORDERS =================
+// ================= CHEF DASHBOARD =================
 app.get("/chef-orders", (req, res) => {
   const query = `
     SELECT 
@@ -183,7 +166,6 @@ app.get("/chef-orders", (req, res) => {
       console.error("CHEF FETCH ERROR:", err);
       return res.json([]);
     }
-
     res.json(results);
   });
 });
@@ -211,7 +193,6 @@ app.post("/serve-order", (req, res) => {
 });
 
 // ================= SERVER =================
-// ✅ REQUIRED for Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
